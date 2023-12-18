@@ -15,17 +15,12 @@ public class ApplicationDbContext : IdentityDbContext<User, Role, int>
 
     }
 
+    public DbSet<LicenseType> LicenseTypes { get; set; }
+    public DbSet<MaritalStatus> MaritalStatuses { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
-        var entitiesAssembly = typeof(IEntity).Assembly;
-
-        modelBuilder.RegisterAllEntities<IEntity>(entitiesAssembly);
-        modelBuilder.RegisterEntityTypeConfiguration(entitiesAssembly);
-        modelBuilder.AddRestrictDeleteBehaviorConvention();
-        modelBuilder.AddSequentialGuidForIdConvention();
-        modelBuilder.AddPluralizingTableNameConvention();
     }
 
     public override int SaveChanges()

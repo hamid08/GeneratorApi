@@ -1,7 +1,10 @@
 using GeneratorApi.Context;
+using GeneratorApi.Contracts;
+using GeneratorApi.CustomMapping;
 using GeneratorApi.Extensions;
+using GeneratorApi.Middlewares;
+using GeneratorApi.Repositories;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +20,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("SqlServer"));
 });
 
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
+builder.Services.InitializeAutoMapper();
+
 
 var app = builder.Build();
 
@@ -29,6 +36,7 @@ if (app.Environment.IsDevelopment())
 
 app.IntializeDatabase();
 
+app.UseCustomExceptionHandler();
 
 app.UseHttpsRedirection();
 
