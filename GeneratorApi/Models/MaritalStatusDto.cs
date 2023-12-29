@@ -1,4 +1,5 @@
-﻿using GeneratorApi.Api;
+﻿using AutoMapper;
+using GeneratorApi.Api;
 using GeneratorApi.Entities;
 using System.ComponentModel.DataAnnotations;
 
@@ -22,8 +23,25 @@ namespace GeneratorApi.Models
 
         [Display(Name = "توضیحات")]
         public string? Description { get; set; }
+        public List<string> BrandCaptions { get; set; }
+        public string BrandCaptionsWithJoin { get; set; }
 
+        public override void CustomMappings(IMappingExpression<MaritalStatus, MaritalStatusSelectDto> mapping)
+        {
+            mapping.ForMember(
+                   dest => dest.BrandCaptions,
+                   config => config.MapFrom(src => src.Brands.Select(c=> c.Caption).ToList()));
 
+            mapping.ForMember(
+                dest => dest.BrandCaptionsWithJoin,
+                config => config.MapFrom(src => 
+                string.Join(",",src.Brands.Select(c => c.Caption).ToList())
+                
+                ));
+        }
 
     }
+
+    
+
 }

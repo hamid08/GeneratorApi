@@ -12,6 +12,6 @@ namespace GeneratorApi.Entities
         [Display(Name = "توضیحات")]
         public string? Description { get; set; }
 
-
+        public ICollection<Brand> Brands { get; set; }
     }
 }

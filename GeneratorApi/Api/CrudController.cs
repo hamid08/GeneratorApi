@@ -2,6 +2,7 @@
 using AutoMapper.QueryableExtensions;
 using GeneratorApi.Contracts;
 using GeneratorApi.Entities.Base;
+using GeneratorApi.Extensions.Grid;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,11 +22,12 @@ namespace GeneratorApi.Api
             Mapper = mapper;
         }
 
-        [HttpGet]
-        public virtual async Task<ActionResult<List<TSelectDto>>> Get(CancellationToken cancellationToken)
+
+        [HttpPost("Grid")]
+        public virtual async Task<ActionResult<List<TSelectDto>>> Grid(BaseRequestGridDto? filter, CancellationToken cancellationToken)
         {
             var list = await Repository.TableNoTracking.ProjectTo<TSelectDto>(Mapper.ConfigurationProvider)
-                .ToListAsync(cancellationToken);
+                .ApplySearchFilters(filter, cancellationToken);
 
             return Ok(list);
         }
@@ -34,7 +36,7 @@ namespace GeneratorApi.Api
         public virtual async Task<ApiResult<TSelectDto>> Get(TKey id, CancellationToken cancellationToken)
         {
             var dto = await Repository.TableNoTracking.ProjectTo<TSelectDto>(Mapper.ConfigurationProvider)
-                .SingleOrDefaultAsync(p => p.Id.Equals(id), cancellationToken);
+                .SingleOrDefaultAsync(p => p.Id!.Equals(id), cancellationToken);
 
             if (dto == null)
                 return NotFound();
@@ -45,31 +47,29 @@ namespace GeneratorApi.Api
         [HttpPost]
         public virtual async Task<ApiResult<TSelectDto>> Create(TDto dto, CancellationToken cancellationToken)
         {
+            dto.Id = default!;
             var model = dto.ToEntity(Mapper);
 
             await Repository.AddAsync(model, cancellationToken);
 
-            var resultDto = await Repository.TableNoTracking.ProjectTo<TSelectDto>(Mapper.ConfigurationProvider)
-                .SingleOrDefaultAsync(p => p.Id.Equals(model.Id), cancellationToken);
+            return Ok();
 
-            return resultDto!;
         }
 
         [HttpPut]
         public virtual async Task<ApiResult<TSelectDto>> Update(TKey id, TDto dto, CancellationToken cancellationToken)
         {
-            dto.Id = id;
-
             var model = await Repository.GetByIdAsync(cancellationToken, id);
+
+            if (model == null)
+                return NotFound();
 
             model = dto.ToEntity(Mapper, model);
 
             await Repository.UpdateAsync(model, cancellationToken);
 
-            var resultDto = await Repository.TableNoTracking.ProjectTo<TSelectDto>(Mapper.ConfigurationProvider)
-                .SingleOrDefaultAsync(p => p.Id.Equals(model.Id), cancellationToken);
+            return Ok();
 
-            return resultDto;
         }
 
         [HttpDelete("{id}")]
@@ -77,7 +77,23 @@ namespace GeneratorApi.Api
         {
             var model = await Repository.GetByIdAsync(cancellationToken, id);
 
+            if (model == null)
+                return NotFound();
+
             await Repository.DeleteAsync(model, cancellationToken);
+
+            return Ok();
+        }
+
+        [HttpDelete("DeleteAll")]
+        public virtual async Task<IActionResult> DeleteAll([FromQuery] List<TKey> ids, CancellationToken cancellationToken)
+        {
+            var model = await Repository.TableNoTracking.Where(c=> ids.Contains(c.Id)).ToListAsync(cancellationToken);
+
+            if (model == null || !model.Any())
+                return NotFound();
+
+            await Repository.DeleteRangeAsync(model, cancellationToken);
 
             return Ok();
         }
