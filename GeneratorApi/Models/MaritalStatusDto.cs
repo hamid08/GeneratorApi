@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using GeneratorApi.Api;
 using GeneratorApi.Entities;
+using GeneratorApi.Filters;
 using System.ComponentModel.DataAnnotations;
 
 namespace GeneratorApi.Models
@@ -12,8 +13,9 @@ namespace GeneratorApi.Models
 
         [Display(Name = "توضیحات")]
         public string? Description { get; set; }
+        public int Port { get; set; }
 
-       
+
     }
 
     public class MaritalStatusSelectDto : BaseDto<MaritalStatusSelectDto, MaritalStatus>
@@ -25,6 +27,9 @@ namespace GeneratorApi.Models
         public string? Description { get; set; }
         public List<string> BrandCaptions { get; set; }
         public string BrandCaptionsWithJoin { get; set; }
+
+        public int Port { get; set; }
+
 
         public override void CustomMappings(IMappingExpression<MaritalStatus, MaritalStatusSelectDto> mapping)
         {

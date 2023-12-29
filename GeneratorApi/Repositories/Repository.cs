@@ -1,9 +1,16 @@
-﻿using GeneratorApi.Context;
+﻿using Azure.Core;
+using GeneratorApi.Context;
 using GeneratorApi.Contracts;
 using GeneratorApi.Entities.Base;
+using GeneratorApi.Filters;
 using GeneratorApi.Utilities;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.Common;
 using System.Linq.Expressions;
+using System.Reflection;
+using System.Reflection.Metadata;
+using System.Security.Cryptography;
 
 namespace GeneratorApi.Repositories
 {
@@ -31,10 +38,107 @@ namespace GeneratorApi.Repositories
         public virtual async Task AddAsync(TEntity entity, CancellationToken cancellationToken, bool saveNow = true)
         {
             Assert.NotNull(entity, nameof(entity));
+
+            var condition = GetCondition2(entity);
+
+            var t = TableNoTracking;
+            foreach(var con in condition)
+            {
+                t = t.Where(con);
+            }
+
+            if (t.Any())
+            {
+
+            }
+
+
             await Entities.AddAsync(entity, cancellationToken).ConfigureAwait(false);
             if (saveNow)
                 await DbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
+
+        public Expression<Func<TEntity, bool>> GetCondition(string nameProperty, string text)
+        {
+            var i = Expression.Parameter(typeof(TEntity), "i");
+            var prop = Expression.Property(i, nameProperty);
+            var value = Expression.Constant(text);
+
+            MethodInfo method = typeof(string).GetMethod("Equals", new[] { typeof(string) });
+            var containsMethodExp = Expression.Call(prop, method, value);
+            var lambda = Expression.Lambda<Func<TEntity, bool>>(containsMethodExp, i);
+
+            return lambda;
+        }
+
+        public List<Expression<Func<TEntity, bool>>> GetCondition2(TEntity entity)
+        {
+            var numberTypes = new Type[] { typeof(byte), typeof(byte?), typeof(int), typeof(int?), typeof(long), typeof(long?) };
+            List<Expression> orExpressions = new List<Expression>();
+            var parameter = Expression.Parameter(typeof(TEntity), "o");
+
+            var properties = entity.GetType().GetProperties();
+
+            foreach (var prop in properties)
+            {
+                var uniqueAttribute = prop.GetCustomAttribute(typeof(UniqueAttribute));
+                if (uniqueAttribute != null)
+                {
+                    var left = Expression.Property(parameter, prop);
+                    Expression exp = null;
+
+                    var param = prop.GetValue(entity);
+
+
+                    if (numberTypes.Contains(prop.PropertyType))
+                    {
+                        if (long.TryParse(param.ToString(), out long filterValue))
+                        {
+                            try
+                            {
+                                var right = Expression.Constant(Convert.ChangeType(filterValue, Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType));
+
+                                var rightExpression = Expression.Convert(right, prop.PropertyType);
+                                exp = Expression.Equal(left, rightExpression);
+
+                            }
+                            catch (Exception)
+                            {
+                            }
+
+                        }
+                    }
+                    else if (prop.PropertyType == typeof(string))
+                    {
+                        var right = Expression.Constant(param);
+                        exp = Expression.Equal(left, right);
+                    }
+
+                    //
+
+                    if (exp == null)
+                    {
+                        orExpressions.Add(Expression.Constant(false));
+                    }
+                    else
+                    {
+                        orExpressions.Add(exp);
+                    }
+                }
+            }
+
+            var lambdas = new List<Expression<Func<TEntity, bool>>>();
+
+            foreach (var exp in orExpressions)
+            {
+                lambdas.Add(Expression.Lambda<Func<TEntity, bool>>(exp, parameter));
+
+            }
+
+
+            return lambdas;
+        }
+
 
         public virtual async Task AddRangeAsync(IEnumerable<TEntity> entities, CancellationToken cancellationToken, bool saveNow = true)
         {
@@ -75,6 +179,7 @@ namespace GeneratorApi.Repositories
             if (saveNow)
                 await DbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
+
         #endregion
 
         #region Sync Methods
@@ -186,6 +291,8 @@ namespace GeneratorApi.Repositories
             if (!reference.IsLoaded)
                 reference.Load();
         }
+
+
         #endregion
     }
 }

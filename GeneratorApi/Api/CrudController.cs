@@ -3,8 +3,15 @@ using AutoMapper.QueryableExtensions;
 using GeneratorApi.Contracts;
 using GeneratorApi.Entities.Base;
 using GeneratorApi.Extensions.Grid;
+using GeneratorApi.Filters;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace GeneratorApi.Api
 {
@@ -56,9 +63,11 @@ namespace GeneratorApi.Api
 
         }
 
+
         [HttpPut]
         public virtual async Task<ApiResult<TSelectDto>> Update(TKey id, TDto dto, CancellationToken cancellationToken)
         {
+            dto.Id = id;
             var model = await Repository.GetByIdAsync(cancellationToken, id);
 
             if (model == null)
@@ -86,9 +95,9 @@ namespace GeneratorApi.Api
         }
 
         [HttpDelete("DeleteAll")]
-        public virtual async Task<IActionResult> DeleteAll([FromQuery] List<TKey> ids, CancellationToken cancellationToken)
+        public virtual async Task<ApiResult> DeleteAll([FromQuery] List<TKey> ids, CancellationToken cancellationToken)
         {
-            var model = await Repository.TableNoTracking.Where(c=> ids.Contains(c.Id)).ToListAsync(cancellationToken);
+            var model = await Repository.TableNoTracking.Where(c => ids.Contains(c.Id)).ToListAsync(cancellationToken);
 
             if (model == null || !model.Any())
                 return NotFound();
@@ -119,4 +128,6 @@ namespace GeneratorApi.Api
         {
         }
     }
+
+
 }
