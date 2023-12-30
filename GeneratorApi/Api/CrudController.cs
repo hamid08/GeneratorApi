@@ -2,11 +2,14 @@
 using AutoMapper.QueryableExtensions;
 using GeneratorApi.Contracts;
 using GeneratorApi.Entities.Base;
+using GeneratorApi.Extensions;
 using GeneratorApi.Extensions.Grid;
 using GeneratorApi.Filters;
+using MathNet.Numerics.Distributions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using NPOI.POIFS.Crypt.Dsig;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Linq.Expressions;
@@ -34,7 +37,15 @@ namespace GeneratorApi.Api
         public virtual async Task<ActionResult<List<TSelectDto>>> Grid(BaseRequestGridDto? filter, CancellationToken cancellationToken)
         {
             var list = await Repository.TableNoTracking.ProjectTo<TSelectDto>(Mapper.ConfigurationProvider)
-                .ApplySearchFilters(filter, cancellationToken);
+            .ApplySearchFilters(filter, cancellationToken);
+
+            if (filter.ExcelExport)
+            {
+                ExportToExcel<TSelectDto> exporter = new ExportToExcel<TSelectDto>();
+                var result = exporter.ExportToExcelFile(list.List);
+
+                return File(result, "application/vnd.ms-excel", "MyExcel.xlsx");
+            }
 
             return Ok(list);
         }
@@ -106,6 +117,9 @@ namespace GeneratorApi.Api
 
             return Ok();
         }
+
+
+
     }
 
     public class CrudController<TDto, TSelectDto, TEntity> : CrudController<TDto, TSelectDto, TEntity, int>

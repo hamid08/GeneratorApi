@@ -2,9 +2,11 @@
 using GeneratorApi.Context;
 using GeneratorApi.Contracts;
 using GeneratorApi.Entities.Base;
+using GeneratorApi.Extensions.Grid;
 using GeneratorApi.Filters;
 using GeneratorApi.Utilities;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data.Common;
 using System.Linq.Expressions;
@@ -35,50 +37,51 @@ namespace GeneratorApi.Repositories
             return Entities.FindAsync(ids, cancellationToken)!;
         }
 
-        public virtual async Task AddAsync(TEntity entity, CancellationToken cancellationToken, bool saveNow = true)
+        public virtual async Task AddAsync(TEntity entity, CancellationToken cancellationToken, bool checkDuplicate = true, bool saveNow = true)
         {
             Assert.NotNull(entity, nameof(entity));
 
-            var condition = GetCondition2(entity);
-
-            var t = TableNoTracking;
-            foreach(var con in condition)
+            if (checkDuplicate)
             {
-                t = t.Where(con);
+                var condition = GetCondition(entity);
+
+                var entityInDb = TableNoTracking;
+                condition.ForEach(c =>
+                {
+                    entityInDb = entityInDb.Where(c);
+
+                });
+
+                if (entityInDb.Any()) throw new Exception("رکورد تکراری می باشد.");
+
             }
-
-            if (t.Any())
-            {
-
-            }
-
 
             await Entities.AddAsync(entity, cancellationToken).ConfigureAwait(false);
             if (saveNow)
                 await DbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        public Expression<Func<TEntity, bool>> GetCondition(string nameProperty, string text)
-        {
-            var i = Expression.Parameter(typeof(TEntity), "i");
-            var prop = Expression.Property(i, nameProperty);
-            var value = Expression.Constant(text);
+        //public Expression<Func<TEntity, bool>> GetCondition(string nameProperty, string text)
+        //{
+        //    var i = Expression.Parameter(typeof(TEntity), "i");
+        //    var prop = Expression.Property(i, nameProperty);
+        //    var value = Expression.Constant(text);
 
-            MethodInfo method = typeof(string).GetMethod("Equals", new[] { typeof(string) });
-            var containsMethodExp = Expression.Call(prop, method, value);
-            var lambda = Expression.Lambda<Func<TEntity, bool>>(containsMethodExp, i);
+        //    MethodInfo method = typeof(string).GetMethod("Equals", new[] { typeof(string) });
+        //    var containsMethodExp = Expression.Call(prop, method, value);
+        //    var lambda = Expression.Lambda<Func<TEntity, bool>>(containsMethodExp, i);
 
-            return lambda;
-        }
+        //    return lambda;
+        //}
 
-        public List<Expression<Func<TEntity, bool>>> GetCondition2(TEntity entity)
+        public List<Expression<Func<TEntity, bool>>> GetCondition(TEntity entity)
         {
             var numberTypes = new Type[] { typeof(byte), typeof(byte?), typeof(int), typeof(int?), typeof(long), typeof(long?) };
             List<Expression> orExpressions = new List<Expression>();
             var parameter = Expression.Parameter(typeof(TEntity), "o");
 
             var properties = entity.GetType().GetProperties();
-
+            
             foreach (var prop in properties)
             {
                 var uniqueAttribute = prop.GetCustomAttribute(typeof(UniqueAttribute));
@@ -113,6 +116,14 @@ namespace GeneratorApi.Repositories
                         var right = Expression.Constant(param);
                         exp = Expression.Equal(left, right);
                     }
+
+                    //Enum
+                    else if (prop.PropertyType.IsEnum || prop.PropertyType.IsNullableEnum())
+                    {
+                        var right = Expression.Constant(param);
+                        exp = Expression.Equal(left, right);
+                    }
+
 
                     //
 
@@ -151,6 +162,7 @@ namespace GeneratorApi.Repositories
         public virtual async Task UpdateAsync(TEntity entity, CancellationToken cancellationToken, bool saveNow = true)
         {
             Assert.NotNull(entity, nameof(entity));
+
             Entities.Update(entity);
             if (saveNow)
                 await DbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

@@ -1,5 +1,6 @@
 ﻿using GeneratorApi.Entities.Base;
 using GeneratorApi.Enums.Base;
+using GeneratorApi.Filters;
 using System.ComponentModel.DataAnnotations;
 
 namespace GeneratorApi.Entities
@@ -14,6 +15,8 @@ namespace GeneratorApi.Entities
         public string? Description { get; set; }
 
         [Display(Name = "وضعیت")]
+        [Unique]
+
         public ActiveStatus ActivateStatus { get; set; }
     }
 }
